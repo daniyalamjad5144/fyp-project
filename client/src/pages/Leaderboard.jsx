@@ -42,7 +42,7 @@ const Leaderboard = () => {
                             </tr>
                         </thead>
                         <tbody className="text-gray-700">
-                            {mentors.map((mentor, index) => (
+                            {mentors.filter(m => m && m.user).map((mentor, index) => (
                                 <tr key={mentor._id} className="border-b hover:bg-gray-50">
                                     <td className="py-4 px-6 font-bold text-lg text-slate-400">
                                         {index + 1 === 1 ? '🥇' : index + 1 === 2 ? '🥈' : index + 1 === 3 ? '🥉' : index + 1}
@@ -53,10 +53,10 @@ const Leaderboard = () => {
                                                 index === 2 ? 'bg-orange-100 text-orange-700 border-2 border-orange-200' :
                                                     'bg-slate-50 text-slate-400'
                                             }`}>
-                                            {mentor.user.name.charAt(0)}
+                                            {mentor.user?.name ? mentor.user.name.charAt(0) : 'M'}
                                         </div>
                                         <span className={`font-bold ${index < 3 ? 'text-slate-900' : 'text-slate-600'}`}>
-                                            {mentor.user.name}
+                                            {mentor.user?.name || 'Mentor'}
                                         </span>
                                     </td>
                                     <td className={`py-4 px-6 font-black ${index === 0 ? 'text-yellow-600' :

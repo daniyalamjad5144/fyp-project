@@ -1,62 +1,70 @@
 const MentorProfile = require('../models/MentorProfile');
+const { syncAllMentorProfiles } = require('../services/mentorService');
 
 // Find mentors based on skills and availability
 exports.findMentors = async (req, res) => {
     try {
         const { skill, day, gender } = req.query;
 
-        // Base query: only show approved mentors
-        // UNLESS it's the current user's own profile (so they can see themselves)
-        let query = {
-            $or: [
-                { isApproved: true },
-            ]
-        };
+        // Auto-sync any mentor user in the database who doesn't have a MentorProfile yet
+        await syncAllMentorProfiles();
 
-        if (req.user && req.user.id) {
-            query.$or.push({ user: req.user.id });
-        }
-
-        const mentors = await MentorProfile.find(query)
+        // Fetch all mentor profiles and populate the user details
+        const mentors = await MentorProfile.find({})
             .populate({
                 path: 'user',
-                select: 'name avatar gender'
+                select: 'name email avatar gender role'
             })
-            .sort({ rating: -1 });
+            .sort({ rating: -1, points: -1 });
+
+        // Ensure we only return profiles that have an active associated user with role 'mentor'
+        let filteredMentors = mentors.filter(m => m.user && m.user.role === 'mentor');
 
         // Filter by gender if provided
-        let filteredMentors = mentors;
         if (gender && gender !== 'any') {
-            filteredMentors = mentors.filter(m =>
-                m.user && m.user.gender === gender.toLowerCase()
-            );
-        }
-        if (skill) {
-            const regex = new RegExp(skill, 'i');
-            filteredMentors = mentors.filter(m =>
-                m.skills.some(s => regex.test(s))
+            filteredMentors = filteredMentors.filter(m =>
+                m.user && m.user.gender && m.user.gender.toLowerCase() === gender.toLowerCase()
             );
         }
 
-        if (day) {
-            const regex = new RegExp(day, 'i');
+        // Filter by skill if provided
+        if (skill && skill.trim()) {
+            const regex = new RegExp(skill.trim(), 'i');
             filteredMentors = filteredMentors.filter(m =>
-                m.availability.some(a => regex.test(a.day))
+                Array.isArray(m.skills) && m.skills.some(s => s && regex.test(s))
+            );
+        }
+
+        // Filter by day if provided
+        if (day && day.trim()) {
+            const regex = new RegExp(day.trim(), 'i');
+            filteredMentors = filteredMentors.filter(m =>
+                Array.isArray(m.availability) && m.availability.some(a => a && a.day && regex.test(a.day))
             );
         }
 
         res.json(filteredMentors);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error('❌ findMentors Error:', err.message);
+        res.status(500).json({ message: 'Server Error', error: err.message });
     }
 };
 
-// Get a specific mentor by ID
+// Get a specific mentor by ID (supports MentorProfile ID or User ID)
 exports.getMentorById = async (req, res) => {
     try {
-        const mentor = await MentorProfile.findById(req.params.id)
-            .populate('user', ['name', 'email', 'avatar', 'gender']);
+        let mentor = null;
+
+        if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            mentor = await MentorProfile.findById(req.params.id)
+                .populate('user', ['name', 'email', 'avatar', 'gender', 'role']);
+
+            // Fallback: check if the id provided was actually the User ID
+            if (!mentor) {
+                mentor = await MentorProfile.findOne({ user: req.params.id })
+                    .populate('user', ['name', 'email', 'avatar', 'gender', 'role']);
+            }
+        }
 
         if (!mentor) {
             return res.status(404).json({ message: 'Mentor not found' });
@@ -64,10 +72,7 @@ exports.getMentorById = async (req, res) => {
 
         res.json(mentor);
     } catch (err) {
-        console.error('Get mentor by ID error:', err.message);
-        if (err.kind === 'ObjectId') {
-            return res.status(404).json({ message: 'Mentor not found' });
-        }
+        console.error('❌ Get mentor by ID error:', err.message);
         res.status(500).json({ message: 'Server Error' });
     }
 };

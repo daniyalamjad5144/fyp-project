@@ -4,8 +4,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const { MongoMemoryServer } = require('mongodb-memory-server');
-const seedData = require('./seed');
 const Message = require('./models/Message');
 
 const app = express();
@@ -22,62 +20,25 @@ app.use(cors());
 app.use(express.json());
 
 // Database Connection
+let isConnected = false;
 const connectDB = async () => {
+  if (isConnected) return;
   try {
-    // 1. Try Atlas / Environment URI
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/p2p-learning', {
-      serverSelectionTimeoutMS: 3000 // Shorter timeout for faster fallback
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error('MONGO_URI is not defined in environment variables.');
+    }
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 10000
     });
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-
-    // Seed data on Atlas connection to ensure mentors exist
-    console.log('🌱 Checking/Seeding database on PRIMARY connection...');
-    await seedData();
-
-    // VERIFY SEED
-    const userCount = await require('./models/User').countDocuments();
-    console.log(`📊 Current User Count in DB: ${userCount}`);
-    if (userCount === 0) {
-      console.log('⚠️ DB is empty after seed! Attempting force re-seed...');
-      await seedData();
-    }
+    isConnected = true;
+    console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host} | DB: ${conn.connection.name}`);
   } catch (error) {
-    console.error('❌ Primary MongoDB Connection Failed:', error.message);
-
-    try {
-      // 2. Try Local MongoDB
-      console.log('⚠️ Attempting fallback to local MongoDB (localhost:27017)...');
-      const localConn = await mongoose.connect('mongodb://localhost:27017/p2p-learning', {
-        serverSelectionTimeoutMS: 2000
-      });
-      console.log(`✅ Fallback: Connected to Local MongoDB: ${localConn.connection.host}`);
-
-      console.log('🌱 Seeding Local DB...');
-      await seedData();
-    } catch (localError) {
-      console.error('❌ Local MongoDB Fallback Failed:', localError.message);
-
-      try {
-        // 3. Try In-Memory MongoDB (Zero-config fallback)
-        console.log('⚠️ Attempting fallback to In-Memory MongoDB...');
-        const mongod = await MongoMemoryServer.create();
-        const uri = mongod.getUri();
-        const memoryConn = await mongoose.connect(uri);
-        console.log(`✅ Fallback: Connected to In-Memory MongoDB: ${memoryConn.connection.host}`);
-        console.log('ℹ️  Note: Data will be lost when server restarts.');
-
-        // Seed data since it's a fresh in-memory DB
-        console.log('🌱 Seeding in-memory database...');
-        await seedData();
-      } catch (memoryError) {
-        console.error('❌ In-Memory MongoDB Fallback Failed:', memoryError.message);
-        console.error('CRITICAL: Could not connect to any database.');
-      }
-    }
+    console.error('❌ MongoDB Connection Error:', error.message);
+    process.exit(1);
   }
 };
 
-connectDB();
 // Socket.io Logic
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);

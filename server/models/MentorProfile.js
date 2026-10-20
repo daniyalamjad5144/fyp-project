@@ -7,8 +7,8 @@ const MentorProfileSchema = new mongoose.Schema({
     university: String,
     degree: String,
     verificationDocuments: [String],
-    isApproved: { type: Boolean, default: false },
-    rating: { type: Number, default: 0 },
+    isApproved: { type: Boolean, default: true },
+    rating: { type: Number, default: 5 },
     reviewCount: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
     level: {

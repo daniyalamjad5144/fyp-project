@@ -252,3 +252,18 @@ function getMentorProfileData(userId, name) {
 }
 
 module.exports = seedData;
+
+if (require.main === module) {
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    mongoose.connect(mongoUri)
+        .then(async () => {
+            console.log('Connected to MongoDB Atlas. Running seed...');
+            await seedData();
+            console.log('Seed finished.');
+            process.exit(0);
+        })
+        .catch(err => {
+            console.error('Failed to run seed:', err);
+            process.exit(1);
+        });
+}

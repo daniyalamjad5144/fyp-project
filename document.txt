@@ -1,0 +1,13 @@
+mongodb+srv://<db_username>:uc5rKpyatjlRi6v9@cluster0.ult929i.mongodb.net/
+
+mongodb+srv://daniyalkhan5144_db_user:<db_password>@cluster0.ult929i.mongodb.net/
+---------------------------------------------------------------------------------------------
+daniyalkhan5144_db_user
+m4QM8upqFKdAUkcT
+mongodb+srv://<db_username>:m4QM8upqFKdAUkcT@cluster0.dxxv02b.mongodb.net/
+
+mongodb+srv://daniyalkhan5144_db_user:m4QM8upqFKdAUkcT@cluster0.dxxv02b.mongodb.net/
+
+
+
+is ma jo gander fileter sahi kro or login krta howa puch lo k male hai ya female hai us hasab sa filteration kro male and female ki or password ma eye ka option b lagha do

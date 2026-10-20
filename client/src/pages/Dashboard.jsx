@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, CheckCircle, Clock, Award, User, BookOpen, MessageSquare, LogOut, Search, Trophy, Video, Gift, Lock, X, CreditCard, DollarSign } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Award, User, BookOpen, MessageSquare, LogOut, Search, Trophy, Video, Gift, Lock, X, CreditCard, DollarSign, Edit3, Save, Plus, Trash2 } from 'lucide-react';
 import MeetingCard from '../components/MeetingCard';
 import { API_URL } from '../config';
 
@@ -14,6 +14,16 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
+    const [profileSaving, setProfileSaving] = useState(false);
+    const [profileSaved, setProfileSaved] = useState(false);
+    const [profileForm, setProfileForm] = useState({
+        bio: '',
+        university: '',
+        degree: '',
+        skillsInput: '',
+        skills: []
+    });
     const [withdrawMethod, setWithdrawMethod] = useState('paypal');
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [withdrawDetails, setWithdrawDetails] = useState({
@@ -42,7 +52,19 @@ const Dashboard = () => {
                 });
 
                 setUser(profileRes.data.user);
-                setProfile(profileRes.data.profile);
+                const loadedProfile = profileRes.data.profile;
+                setProfile(loadedProfile);
+
+                // Pre-fill edit form with existing profile data
+                if (loadedProfile) {
+                    setProfileForm({
+                        bio: loadedProfile.bio || '',
+                        university: loadedProfile.university || '',
+                        degree: loadedProfile.degree || '',
+                        skillsInput: '',
+                        skills: loadedProfile.skills || []
+                    });
+                }
 
                 // Fetch sessions
                 const sessionsRes = await axios.get(`${API_URL}/api/sessions`, {
@@ -73,6 +95,40 @@ const Dashboard = () => {
 
         fetchDashboardData();
     }, [navigate]);
+
+    const handleSaveProfile = async () => {
+        try {
+            setProfileSaving(true);
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/api/profile`, {
+                bio: profileForm.bio,
+                university: profileForm.university,
+                degree: profileForm.degree,
+                skills: profileForm.skills,
+                availability: profile?.availability || []
+            }, { headers: { 'x-auth-token': token } });
+
+            setProfile(res.data);
+            setShowEditProfile(false);
+            setProfileSaved(true);
+            setTimeout(() => setProfileSaved(false), 3000);
+        } catch (err) {
+            console.error('Profile save error:', err);
+        } finally {
+            setProfileSaving(false);
+        }
+    };
+
+    const handleAddSkill = () => {
+        const skill = profileForm.skillsInput.trim();
+        if (skill && !profileForm.skills.includes(skill)) {
+            setProfileForm(prev => ({ ...prev, skills: [...prev.skills, skill], skillsInput: '' }));
+        }
+    };
+
+    const handleRemoveSkill = (skillToRemove) => {
+        setProfileForm(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skillToRemove) }));
+    };
 
     const formatDate = (date) => {
         return new Date(date).toLocaleDateString('en-US', {
@@ -291,48 +347,144 @@ const Dashboard = () => {
 
                         {user?.role === 'mentor' && (
                             <div className="mt-6 border-t border-slate-100 pt-6">
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <Award className="w-5 h-5 text-accent-500" />
-                                    Mentor Details
-                                </h3>
-                                {profile ? (
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                        <Award className="w-5 h-5 text-accent-500" />
+                                        Mentor Profile
+                                    </h3>
+                                    <button
+                                        onClick={() => {
+                                            if (profile) {
+                                                setProfileForm({ bio: profile.bio || '', university: profile.university || '', degree: profile.degree || '', skillsInput: '', skills: profile.skills || [] });
+                                            }
+                                            setShowEditProfile(!showEditProfile);
+                                        }}
+                                        className="flex items-center gap-1 text-xs font-bold text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-all"
+                                    >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                        {showEditProfile ? 'Cancel' : 'Edit Profile'}
+                                    </button>
+                                </div>
+
+                                {profileSaved && (
+                                    <div className="mb-3 bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded-lg flex items-center gap-2">
+                                        <CheckCircle className="w-4 h-4" /> Profile saved successfully!
+                                    </div>
+                                )}
+
+                                {showEditProfile ? (
                                     <div className="space-y-4">
                                         <div>
-                                            <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Bio</p>
-                                            <p className="text-slate-700 text-sm leading-relaxed mt-1">{profile.bio}</p>
+                                            <label className="text-slate-500 text-xs uppercase font-bold tracking-wider block mb-1">Bio</label>
+                                            <textarea
+                                                rows={3}
+                                                value={profileForm.bio}
+                                                onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))}
+                                                placeholder="Tell learners about yourself..."
+                                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"
+                                            />
                                         </div>
                                         <div>
-                                            <p className="text-slate-500 text-xs uppercase font-bold tracking-wider mb-2">Skills</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {profile.skills.map((skill, index) => (
-                                                    <span key={index} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-xs font-bold">
+                                            <label className="text-slate-500 text-xs uppercase font-bold tracking-wider block mb-1">University</label>
+                                            <input
+                                                type="text"
+                                                value={profileForm.university}
+                                                onChange={e => setProfileForm(p => ({ ...p, university: e.target.value }))}
+                                                placeholder="e.g. FAST NUCES, NUST..."
+                                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-slate-500 text-xs uppercase font-bold tracking-wider block mb-1">Degree / Field</label>
+                                            <input
+                                                type="text"
+                                                value={profileForm.degree}
+                                                onChange={e => setProfileForm(p => ({ ...p, degree: e.target.value }))}
+                                                placeholder="e.g. BS Computer Science..."
+                                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-slate-500 text-xs uppercase font-bold tracking-wider block mb-1">Skills</label>
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {profileForm.skills.map((skill, i) => (
+                                                    <span key={i} className="flex items-center gap-1 bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-xs font-bold">
                                                         {skill}
+                                                        <button onClick={() => handleRemoveSkill(skill)} className="hover:text-red-600 ml-1">
+                                                            <X className="w-3 h-3" />
+                                                        </button>
                                                     </span>
                                                 ))}
                                             </div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={profileForm.skillsInput}
+                                                    onChange={e => setProfileForm(p => ({ ...p, skillsInput: e.target.value }))}
+                                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                                                    placeholder="Add a skill & press Enter"
+                                                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                                                />
+                                                <button onClick={handleAddSkill} className="bg-primary-600 text-white px-3 py-2 rounded-xl hover:bg-primary-700 transition-colors">
+                                                    <Plus className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            onClick={handleSaveProfile}
+                                            disabled={profileSaving}
+                                            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold py-2.5 rounded-xl hover:from-primary-700 hover:to-primary-800 transition-all disabled:opacity-60"
+                                        >
+                                            {profileSaving ? (
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                                <Save className="w-4 h-4" />
+                                            )}
+                                            {profileSaving ? 'Saving...' : 'Save Profile'}
+                                        </button>
+                                    </div>
+                                ) : profile ? (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Bio</p>
+                                            <p className="text-slate-700 text-sm leading-relaxed mt-1">{profile.bio || <span className="italic text-slate-400">No bio yet — click Edit Profile!</span>}</p>
+                                        </div>
+                                        {profile.university && (
                                             <div>
                                                 <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">University</p>
                                                 <p className="font-medium text-slate-900">{profile.university}</p>
                                             </div>
+                                        )}
+                                        {profile.degree && (
                                             <div>
-                                                <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Points</p>
-                                                <p className="font-bold text-accent-600">{profile.points} XP</p>
+                                                <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">Degree</p>
+                                                <p className="font-medium text-slate-900">{profile.degree}</p>
                                             </div>
+                                        )}
+                                        <div>
+                                            <p className="text-slate-500 text-xs uppercase font-bold tracking-wider mb-2">Skills</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {profile.skills?.length > 0 ? profile.skills.map((skill, index) => (
+                                                    <span key={index} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-xs font-bold">
+                                                        {skill}
+                                                    </span>
+                                                )) : <span className="italic text-slate-400 text-sm">No skills added yet.</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                            <span className="text-slate-500 text-xs uppercase font-bold tracking-wider">Points</span>
+                                            <span className="font-bold text-accent-600">{profile.points} XP</span>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                                        <p className="text-yellow-800 text-sm mb-3">You haven't set up your mentor profile yet.</p>
-                                        <Link to="/create-profile" className="text-primary-600 font-bold text-sm hover:underline">
-                                            Create Profile →
-                                        </Link>
+                                        <p className="text-yellow-800 text-sm mb-3">Profile loading...</p>
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
+
 
                     {/* Quick Actions */}
                     <div className="card bg-gradient-to-br from-slate-50 to-white">
